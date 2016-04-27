@@ -5,18 +5,12 @@ var request = require('request');
 var Protobuf = require('pbf');
 var format = require('util').format;
 var fs = require('fs');
+var url = require('url');
 
 module.exports = function(args, callback) {
 
-    try {
-        var file = fs.lstatSync(args.uri);
-        if (file.isFile()) {
-            fs.readFile(args.uri, function(err, data) {
-                if (err) throw err;
-                readTile(data);
-            });
-        }
-    } catch(err) {
+    var parsed = url.parse(args.uri);
+    if (parsed.protocol && parsed.protocol.indexOf('http') > -1) {
         request.get({
             url: args.uri,
             gzip: true,
@@ -24,6 +18,19 @@ module.exports = function(args, callback) {
         }, function (err, response, body) {
             if (err) throw err;
             readTile(body);
+        });
+    } else {
+        if (parsed.protocol && parsed.protocol.indexOf('file') > -1) {
+            args.uri = parsed.host + parsed.pathname;
+        }
+        fs.lstat(args.uri, function(err, stats) {
+            if (err) throw err;
+            if (stats.isFile()) {
+                fs.readFile(args.uri, function(err, data) {
+                    if (err) throw err;
+                    readTile(data);
+                });
+            }
         });
     }
 
